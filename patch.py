@@ -1,5 +1,26 @@
 import sys
-from types import MethodType
+from types import MethodType, ModuleType, FunctionType, InstanceType, ClassType
+
+class Patcher:
+    def __init__(self, entity):
+        self.ent_type = None
+        self.entity = entity
+        self.__determine_type()
+
+    def __determine_type(self):
+        if isinstance(self.entity, ClassType):
+            self.ent_type = 'C'
+        elif isinstance(self.entity, InstanceType):
+            self.ent_type = 'I'
+        elif isinstance(self.entity, ModuleType):
+            self.ent_type = 'M'
+        else:
+            raise Exception("Un-supported entity type %s" % type(self.entity))
+
+
+    def patch_class(self, old_class, new_class):
+        if self.ent_type != 'M':
+            raise Exception("Entity should be a module for patching a class")
 
 
 class ModulePatcher:
@@ -93,7 +114,10 @@ class ObjectPatcher:
 
 
 if __name__ == "__main__":
+
+
     import mod
+
 
     def my_add(a,b):
         return a*b
@@ -104,6 +128,13 @@ if __name__ == "__main__":
 
         def greet(self):
             print "Hello", self.name
+
+    p = MyPerson()
+    plist = [Patcher(mod), Patcher(MyPerson), Patcher(p)]
+
+        
+
+    exit(0)
 
     def test_mod():
         print mod.add(10,20)
