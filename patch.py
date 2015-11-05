@@ -74,10 +74,10 @@ class ClassPatcher:
         setattr(self.cls, func_name + '_', old_func)
         setattr(self.cls, func_name, MethodType(new_func, self.cls))
 
-    def patch_classmethod(cls, old_func, new_func):
+    def patch_classmethod(self, old_func, new_func):
         func_name = old_func.__name__
-        setattr(cls, func_name + '_', old_func)
-        setattr(cls, func_name, new_func)
+        setattr(self.cls, func_name + '_', old_func)
+        setattr(self.cls, func_name, new_func)
 
 class ObjectPatcher:
     def __init__(self, obj):
