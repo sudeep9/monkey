@@ -1,6 +1,8 @@
 import sys
 from types import MethodType, ModuleType, FunctionType, InstanceType, ClassType
 
+class Dummy: pass
+
 class Patcher:
     def __init__(self, entity):
         self.ent_type = None
@@ -69,24 +71,86 @@ class ClassPatcher:
     def __init__(self, cls):
         self.cls = cls
 
-    def patch_function(self, old_func, new_func):
+    def patch_method(self, old_func, new_func):
         func_name = old_func.__name__
         setattr(self.cls, func_name + '_', old_func)
-        setattr(self.cls, func_name, MethodType(new_func, self.cls))
+        setattr(self.cls, func_name, MethodType(new_func, None, self.cls))
 
     def patch_classmethod(self, old_func, new_func):
         func_name = old_func.__name__
         setattr(self.cls, func_name + '_', old_func)
-        setattr(self.cls, func_name, new_func)
+        setattr(self.cls, func_name, MethodType(new_func, self.cls))
+
+
+    def patch_ctor(self, new_func):
+        self.patch_method(self.cls.__init__, new_func)
+
+    def patch_ctor_empty(self):
+        def empty(self, *args, **kargs): pass
+
+        self.patch_ctor(empty)
+
+    def patch_method_empty(self, old_func):
+        def empty(self, *args, **kargs): pass
+        
+        self.patch_classmethod(old_func, MethodType(empty, self.cls))
+
+    def add_method_empty(self, func_name):
+        def empty(self, *args, **kargs): pass
+        setattr(self.cls, func_name, MethodType(empty, None,  self.cls))
+
+    def add_function(self, func_name, func):
+        setattr(self.cls, func_name, MethodType(func, None, self.cls))
+
+
 
 class ObjectPatcher:
     def __init__(self, obj):
         self.obj = obj
 
-    def patch_function(self, old_func, new_func):
+    def patch_method(self, old_func, new_func):
         func_name = old_func.__name__
         setattr(self.obj, func_name + '_', old_func)
         setattr(self.obj, func_name, MethodType(new_func, self.obj))
+
+    def patch_method_empty(self, old_func):
+        def empty(self, *args, **kargs): pass
+        self.patch_method(old_func, empty)
+
+    def add_method_empty(self, func_name):
+        def empty(self, *args, **kargs): pass
+        setattr(self.obj, func_name, empty)
+
+def multi_setattr(obj, attr_str, value):
+    var_list = attr_str.split('.')
+    prev_dummy = None
+
+    for var_name in var_list[:-1]:
+        dummy = Dummy()
+
+        if prev_dummy:
+            if not hasattr(prev_dummy, var_name):
+                setattr(prev_dummy, var_name, dummy)
+                prev_dummy = dummy
+            else:
+                prev_dummy = getattr(prev_dummy, var_name)
+        else:
+            if not hasattr(obj, var_name):
+                setattr(obj, var_name, dummy)
+                prev_dummy = dummy
+            else:
+                prev_dummy = getattr(obj, var_name)
+
+    setattr(prev_dummy, var_list[-1], value)
+
+
+def multi_setattr_empty_function(obj, attr_str):
+    def empty(self, *args, **kargs): pass
+    multi_setattr(obj, attr_str, MethodType(empty, obj))
+
+def create_function(rpc, attr_str, value):
+    multi_setattr(rpc, attr_str, MethodType(value, rpc))
+
 
 #def patch_module_function(module, old_func, new_func):
 #    func_name = old_func.__name__
@@ -116,7 +180,6 @@ class ObjectPatcher:
 if __name__ == "__main__":
 
 
-    import mod
 
 
     def my_add(a,b):
@@ -124,14 +187,24 @@ if __name__ == "__main__":
 
     class MyPerson:
         def __init__(self):
+            print "orig ctor"
             self.name = "B"
 
+        def __getattr__(self, name):
+            return 1
+
         def greet(self):
+            print type(self)
             print "Hello", self.name
 
-    p = MyPerson()
-    plist = [Patcher(mod), Patcher(MyPerson), Patcher(p)]
+    def g(self, name):
+        return 2
 
+    pt = ClassPatcher(MyPerson)
+    #pt.add_function('__getattr__', g)
+    p = MyPerson()
+    print p.abc
+    p.greet()
         
 
     exit(0)
